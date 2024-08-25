@@ -172,7 +172,7 @@ int main(void)
 
 	  if(!frequencyCalculated){
 		  if(frequencyReceived >= 40 && frequencyReceived <=70){
-			  if(frequencyReceived < 60){
+			  if(frequencyReceived > 40 && frequencyReceived <= 50){
 				  frequencyDetected = 50;
 			  }else{
 				  frequencyDetected = 60;
@@ -216,7 +216,13 @@ int main(void)
 	  angleTimerValue = 0;
 
   }else{
-	  angleTimerValue = Determine_PhaseTimerValue(angleLevel,0, 100, 500, 1000);
+	  if(frequencyDetected == 60){
+		  angleTimerValue = Determine_PhaseTimerValue(angleLevel,0, 100, 350, 748);
+	  }else{
+		  angleTimerValue = Determine_PhaseTimerValue(angleLevel,0, 100, (uint32_t)350*1.2, (uint32_t)748*1.2);
+	  }
+
+
   }
 
 
@@ -225,10 +231,12 @@ int main(void)
   }
 
   if(olcAngleTimerValue != angleTimerValue){
-	  __HAL_TIM_SET_COUNTER(&htim3, 0);
-	  __HAL_TIM_SET_AUTORELOAD(&htim3, angleTimerValue);
-	  olcAngleTimerValue = angleTimerValue;
-	  HAL_UART_Transmit(&huart1, "Timer Period Changed\r\n", strlen("Timer Period Changed\r\n"), 100);
+	  if(frequencyCalculated){
+		  __HAL_TIM_SET_COUNTER(&htim3, 0);
+		  __HAL_TIM_SET_AUTORELOAD(&htim3, angleTimerValue);
+		  olcAngleTimerValue = angleTimerValue;
+		  HAL_UART_Transmit(&huart1, "Timer Period Changed\r\n", strlen("Timer Period Changed\r\n"), 100);
+	  }
   }
 
     /* USER CODE END WHILE */
@@ -482,6 +490,18 @@ static void MX_TIM4_Init(void)
 
 }
 
+void Pulse_Change(uint32_t newValue){
+	  TIM_OC_InitTypeDef sConfigOC = {0};
+	  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+	  sConfigOC.Pulse = newValue;
+	  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
+	  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+	  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
+}
+
 /**
   * @brief USART1 Initialization Function
   * @param None
@@ -544,6 +564,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = GPIO_PIN_5;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
@@ -613,9 +634,15 @@ void deneme(){
 //		pulseGiven = true;
 		/* start pwm */
 	if(angleTimerValue != 0){
+
+
+		if(frequencyDetected == 60){
+			Pulse_Change(25);
+		}else{
+			Pulse_Change(30);
+		}
 		__HAL_TIM_ENABLE(&htim4);
 
-		   HAL_TIM_Base_Start(&htim4);
 		   HAL_TIM_OnePulse_Start_IT(&htim4, TIM_CHANNEL_1);
 	}
 
